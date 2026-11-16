@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Classification</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            font-family: Arial, sans-serif;
+            background: #f3f5f9;
+            color: #202938;
+        }
+        .container {
+            width: 100%;
+            max-width: 520px;
+            padding: 32px;
+            background: white;
+            border-radius: 14px;
+            box-shadow: 0 8px 28px rgba(20, 35, 60, 0.08);
+        }
+        h1 { margin-top: 0; text-align: center; }
+        p { color: #657084; text-align: center; }
+        .upload-area {
+            margin: 24px 0;
+            padding: 28px;
+            border: 2px dashed #aab5c5;
+            border-radius: 10px;
+            text-align: center;
+        }
+        input { max-width: 100%; }
+        button {
+            width: 100%;
+            padding: 12px;
+            border: 0;
+            border-radius: 8px;
+            background: #2459d3;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
+        #result {
+            margin-top: 18px;
+            padding: 12px;
+            border-radius: 8px;
+            display: none;
+            overflow-wrap: anywhere;
+        }
+        .success { display: block !important; background: #e8f7ed; color: #176534; }
+        .error { display: block !important; background: #fdecec; color: #a32626; }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <h1>Image Classification</h1>
+        <p>Upload a PNG or JPG image. It will be saved in the matching folder.</p>
+
+        <form id="uploadForm">
+            <div class="upload-area">
+                <input type="file" id="image" name="image" accept=".png,.jpg,.jpeg" required>
+            </div>
+            <button type="submit" id="uploadButton">Upload Image</button>
+        </form>
+
+        <div id="result" role="status"></div>
+    </main>
+
+    <script>
+        const form = document.getElementById("uploadForm");
+        const result = document.getElementById("result");
+        const button = document.getElementById("uploadButton");
+
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            const fileInput = document.getElementById("image");
+            if (!fileInput.files.length) return;
+
+            const formData = new FormData();
+            formData.append("image", fileInput.files[0]);
+
+            button.disabled = true;
+            button.textContent = "Uploading...";
+            result.className = "";
+            result.style.display = "none";
+
+            try {
+                const response = await fetch("/api/upload", {
+                    method: "POST",
+                    body: formData
+                });
+                const data = await response.json();
+
+                result.textContent = data.success
+                    ? `${data.message} Category: ${data.category}. Saved to: ${data.saved_to}`
+                    : data.message;
+                result.className = data.success ? "success" : "error";
+
+                if (data.success) form.reset();
+            } catch (error) {
+                result.textContent = "Upload failed. Please try again.";
+                result.className = "error";
+            } finally {
+                button.disabled = false;
+                button.textContent = "Upload Image";
+            }
+        });
+    </script>
+</body>
+</html>
