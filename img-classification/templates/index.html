@@ -3,114 +3,203 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Classification</title>
+    <title>Image Classification Dashboard</title>
     <style>
         * { box-sizing: border-box; }
         body {
-            margin: 0;
-            min-height: 100vh;
-            display: grid;
-            place-items: center;
-            padding: 24px;
-            font-family: Arial, sans-serif;
-            background: #f3f5f9;
-            color: #202938;
+            margin: 0; min-height: 100vh; padding: 32px 18px;
+            font-family: Inter, Arial, sans-serif; color: #172033;
+            background: #f3f6fb;
         }
-        .container {
-            width: 100%;
-            max-width: 520px;
-            padding: 32px;
-            background: white;
-            border-radius: 14px;
-            box-shadow: 0 8px 28px rgba(20, 35, 60, 0.08);
+        .container { max-width: 920px; margin: auto; }
+        header { margin-bottom: 24px; }
+        h1 { margin: 0 0 8px; font-size: 30px; }
+        .muted { color: #667085; }
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 22px 0; }
+        .card, .panel {
+            background: white; border: 1px solid #e6eaf1; border-radius: 14px;
+            padding: 20px; box-shadow: 0 5px 18px rgba(25, 40, 70, .04);
         }
-        h1 { margin-top: 0; text-align: center; }
-        p { color: #657084; text-align: center; }
-        .upload-area {
-            margin: 24px 0;
-            padding: 28px;
-            border: 2px dashed #aab5c5;
-            border-radius: 10px;
-            text-align: center;
+        .stat-label { color: #667085; font-size: 14px; }
+        .stat-value { display: block; font-size: 30px; font-weight: 700; margin-top: 8px; }
+        .panel { margin-top: 18px; }
+        .dropzone {
+            border: 2px dashed #aab7ca; border-radius: 12px; padding: 28px 18px;
+            text-align: center; background: #f9fbff; transition: .2s;
         }
-        input { max-width: 100%; }
+        .dropzone.drag { border-color: #2459d3; background: #eef4ff; }
+        input { max-width: 100%; margin: 14px 0; }
         button {
-            width: 100%;
-            padding: 12px;
-            border: 0;
-            border-radius: 8px;
-            background: #2459d3;
-            color: white;
-            font-size: 16px;
-            cursor: pointer;
+            border: 0; border-radius: 9px; padding: 12px 20px; background: #2459d3;
+            color: white; font-weight: 600; font-size: 15px; cursor: pointer;
         }
-        button:disabled { opacity: 0.6; cursor: not-allowed; }
-        #result {
-            margin-top: 18px;
-            padding: 12px;
-            border-radius: 8px;
-            display: none;
-            overflow-wrap: anywhere;
-        }
+        button:disabled { opacity: .55; cursor: not-allowed; }
+        .preview { display: none; max-width: 180px; max-height: 150px; margin: 12px auto; border-radius: 8px; }
+        #result { margin-top: 14px; padding: 12px; border-radius: 8px; display: none; }
         .success { display: block !important; background: #e8f7ed; color: #176534; }
         .error { display: block !important; background: #fdecec; color: #a32626; }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 560px; }
+        th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid #edf0f5; font-size: 14px; }
+        th { color: #667085; font-weight: 600; }
+        .pill { display: inline-block; padding: 4px 9px; border-radius: 20px; background: #eef2ff; color: #3448a5; font-size: 12px; }
+        @media (max-width: 620px) {
+            .stats { grid-template-columns: 1fr; }
+            h1 { font-size: 25px; }
+        }
     </style>
 </head>
 <body>
-    <main class="container">
+<main class="container">
+    <header>
         <h1>Image Classification</h1>
-        <p>Upload a PNG or JPG image. It will be saved in the matching folder.</p>
+        <div class="muted">Upload PNG or JPG images. Files are automatically organized and counted in MySQL.</div>
+    </header>
 
+    <section class="stats" aria-label="Upload statistics">
+        <div class="card"><span class="stat-label">Total images</span><strong class="stat-value" id="totalCount">—</strong></div>
+        <div class="card"><span class="stat-label">PNG images</span><strong class="stat-value" id="pngCount">—</strong></div>
+        <div class="card"><span class="stat-label">JPG images</span><strong class="stat-value" id="jpgCount">—</strong></div>
+    </section>
+
+    <section class="panel">
+        <h2>Upload an image</h2>
+        <p class="muted">Supported formats: PNG, JPG, JPEG · Maximum size: 10 MB</p>
         <form id="uploadForm">
-            <div class="upload-area">
-                <input type="file" id="image" name="image" accept=".png,.jpg,.jpeg" required>
+            <div class="dropzone" id="dropzone">
+                <strong>Drag and drop an image here</strong>
+                <div class="muted">or choose a file below</div>
+                <input type="file" id="image" name="image" accept=".png,.jpg,.jpeg,image/png,image/jpeg" required>
+                <img class="preview" id="preview" alt="Selected image preview">
             </div>
-            <button type="submit" id="uploadButton">Upload Image</button>
+            <p><button type="submit" id="uploadButton">Upload image</button></p>
         </form>
+        <div id="result" role="status" aria-live="polite"></div>
+    </section>
 
-        <div id="result" role="status"></div>
-    </main>
+    <section class="panel">
+        <h2>Recent uploads</h2>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>File name</th><th>Type</th><th>Size</th><th>Uploaded at</th></tr></thead>
+                <tbody id="recentRows"><tr><td colspan="4" class="muted">Loading...</td></tr></tbody>
+            </table>
+        </div>
+    </section>
+</main>
 
-    <script>
-        const form = document.getElementById("uploadForm");
-        const result = document.getElementById("result");
-        const button = document.getElementById("uploadButton");
+<script>
+    const form = document.getElementById("uploadForm");
+    const fileInput = document.getElementById("image");
+    const button = document.getElementById("uploadButton");
+    const result = document.getElementById("result");
+    const dropzone = document.getElementById("dropzone");
+    const preview = document.getElementById("preview");
 
-        form.addEventListener("submit", async (event) => {
-            event.preventDefault();
+    function showMessage(message, type) {
+        result.textContent = message;
+        result.className = type;
+    }
 
-            const fileInput = document.getElementById("image");
-            if (!fileInput.files.length) return;
+    function setFile(file) {
+        if (!file) return;
+        const allowed = ["image/png", "image/jpeg"];
+        if (!allowed.includes(file.type)) {
+            showMessage("Please select a valid PNG or JPG image.", "error");
+            fileInput.value = "";
+            preview.style.display = "none";
+            return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+            showMessage("Image must be 10 MB or smaller.", "error");
+            fileInput.value = "";
+            preview.style.display = "none";
+            return;
+        }
+        const transfer = new DataTransfer();
+        transfer.items.add(file);
+        fileInput.files = transfer.files;
+        preview.src = URL.createObjectURL(file);
+        preview.style.display = "block";
+        result.className = "";
+        result.style.display = "none";
+    }
 
-            const formData = new FormData();
-            formData.append("image", fileInput.files[0]);
+    fileInput.addEventListener("change", () => setFile(fileInput.files[0]));
+    ["dragenter", "dragover"].forEach(name => dropzone.addEventListener(name, event => {
+        event.preventDefault(); dropzone.classList.add("drag");
+    }));
+    ["dragleave", "drop"].forEach(name => dropzone.addEventListener(name, event => {
+        event.preventDefault(); dropzone.classList.remove("drag");
+    }));
+    dropzone.addEventListener("drop", event => setFile(event.dataTransfer.files[0]));
 
-            button.disabled = true;
-            button.textContent = "Uploading...";
-            result.className = "";
-            result.style.display = "none";
+    async function loadStats() {
+        try {
+            const response = await fetch("/api/stats");
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.message);
+            document.getElementById("totalCount").textContent = data.counts.total;
+            document.getElementById("pngCount").textContent = data.counts.png_count;
+            document.getElementById("jpgCount").textContent = data.counts.jpg_count;
 
-            try {
-                const response = await fetch("/api/upload", {
-                    method: "POST",
-                    body: formData
+            const rows = document.getElementById("recentRows");
+            rows.replaceChildren();
+            if (!data.recent.length) {
+                const row = rows.insertRow();
+                const cell = row.insertCell();
+                cell.colSpan = 4; cell.className = "muted"; cell.textContent = "No uploads yet.";
+            } else {
+                data.recent.forEach(item => {
+                    const row = rows.insertRow();
+                    [item.original_filename, item.category, formatBytes(item.file_size), item.uploaded_at]
+                        .forEach(value => row.insertCell().textContent = value);
                 });
-                const data = await response.json();
-
-                result.textContent = data.success
-                    ? `${data.message} Category: ${data.category}. Saved to: ${data.saved_to}`
-                    : data.message;
-                result.className = data.success ? "success" : "error";
-
-                if (data.success) form.reset();
-            } catch (error) {
-                result.textContent = "Upload failed. Please try again.";
-                result.className = "error";
-            } finally {
-                button.disabled = false;
-                button.textContent = "Upload Image";
             }
-        });
-    </script>
+        } catch (error) {
+            document.getElementById("recentRows").innerHTML =
+                '<tr><td colspan="4">Could not load data. Check the MySQL connection.</td></tr>';
+            showMessage("Database connection unavailable. Please check the MySQL settings.", "error");
+        }
+    }
+
+    function formatBytes(bytes) {
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    form.addEventListener("submit", async event => {
+        event.preventDefault();
+        if (!fileInput.files.length) return;
+        const formData = new FormData();
+        formData.append("image", fileInput.files[0]);
+
+        button.disabled = true;
+        button.textContent = "Uploading...";
+        result.className = "";
+        result.style.display = "none";
+
+        try {
+            const response = await fetch("/api/upload", { method: "POST", body: formData });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.message || "Upload failed.");
+            showMessage(
+                `${data.message} Type: ${data.category}. Saved in: ${data.saved_to}. Dimensions: ${data.width} × ${data.height}.`,
+                "success"
+            );
+            form.reset();
+            preview.style.display = "none";
+            await loadStats();
+        } catch (error) {
+            showMessage(error.message || "Upload failed. Please try again.", "error");
+        } finally {
+            button.disabled = false;
+            button.textContent = "Upload image";
+        }
+    });
+
+    loadStats();
+</script>
 </body>
 </html>
